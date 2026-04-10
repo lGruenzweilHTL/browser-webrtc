@@ -1,0 +1,114 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.container {
+    max-width: 900px;
+    width: 100%;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+h1, h3 {
+    text-align: center;
+    color: #2c3e50;
+}
+
+.video-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.video-box {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+video {
+    width: 100%;
+    max-width: 400px;
+    background-color: black;
+    border-radius: 8px;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #3498db;
+    color: white;
+    transition: background-color 0.3s;
+}
+
+button:hover:not([disabled]) {
+    background-color: #2980b9;
+}
+
+button[disabled] {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}
+
+#hangupBtn {
+    background-color: #e74c3c;
+}
+#hangupBtn:hover:not([disabled]) {
+    background-color: #c0392b;
+}
+
+.data-channel-container {
+    background-color: #ecf0f1;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+#messages {
+    margin-top: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+.message {
+    padding: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.offline { color: #e74c3c; font-weight: bold; }
+.online { color: #2ecc71; font-weight: bold; }
