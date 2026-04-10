@@ -19,10 +19,16 @@ const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const wsUrl = `${protocol}//${window.location.host}/ws`;
 const signalingSocket = new WebSocket(wsUrl);
 
-// Free public STUN servers provided by Google
+// Free public STUN servers provided by Google, PLUS your new TURN server
+// Replace the TURN credentials below with your real ones from Metered.ca or Twilio
 const configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+            urls: 'turn:global.turn.twilio.com:3478?transport=udp', // Example TURN URL
+            username: 'YOUR_TURN_USERNAME',
+            credential: 'YOUR_TURN_PASSWORD'
+        }
     ]
 };
 
