@@ -19,18 +19,35 @@ const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const wsUrl = `${protocol}//${window.location.host}/ws`;
 const signalingSocket = new WebSocket(wsUrl);
 
-// Free public STUN servers provided by Google, PLUS your new TURN server
-// Replace the TURN credentials below with your real ones from Metered.ca or Twilio
-const configuration = {
+// Free public STUN servers provided by Google, PLUS your new TURN server fetched from the backend
+let configuration = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        {
-            urls: 'turn:global.turn.twilio.com:3478?transport=udp', // Example TURN URL
-            username: 'YOUR_TURN_USERNAME',
-            credential: 'YOUR_TURN_PASSWORD'
-        }
+        { urls: 'stun:stun.l.google.com:19302' }
     ]
 };
+
+// Fetch dynamic TURN configuration securely from backend
+async function fetchTurnConfig() {
+    try {
+        const response = await fetch('/api/turn-config');
+        if (response.ok) {
+            const turnData = await response.json();
+            if (turnData.url && turnData.username) {
+                configuration.iceServers.push({
+                    urls: turnData.url,
+                    username: turnData.username,
+                    credential: turnData.credential
+                });
+                console.log('Successfully fetched secure TURN credentials');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to fetch TURN config. Falling back to STUN only.', error);
+    }
+}
+
+// Fetch config when the script loads
+fetchTurnConfig();
 
 // =======================
 // Signaling Logic
