@@ -102,22 +102,32 @@ sudo systemctl status coturn
 
 ---
 
-### Step 4: Add it to your WebRTC Code (`app.js`)
+### Step 4: Configure Your Application (.env)
 
-Back on your local machine, you will update your WebRTC configuration to point to your new Oracle server. Because strict school firewalls often block UDP, it's a good idea to force the TURN connection over TCP by adding `?transport=tcp`.
+Back on your local machine, instead of hardcoding your password in the frontend (where anyone could steal it and use your 10TB of bandwidth), your WebRTC code is configured to securely fetch it from your backend via `.env`.
 
-```javascript
-const configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        // Your Oracle Cloud STUN server
-        { urls: 'stun:YOUR_DOMAIN.COM:3478' },
-        // Your Oracle Cloud TURN server (forcing TCP to bypass school firewalls)
-        {
-            urls: 'turn:YOUR_DOMAIN.COM:3478?transport=tcp',
-            username: 'myuser',
-            credential: 'MySuperSecretPassword123!'
-        }
-    ]
-};
+1. Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
 ```
+
+2. Edit `.env` with your actual TURN server details:
+```env
+# Change this to match your Oracle IP or Domain
+TURN_URL=turn:YOUR_DOMAIN.COM:3478?transport=tcp
+TURN_USERNAME=myuser
+TURN_PASSWORD=MySuperSecretPassword123!
+```
+
+> **Why `?transport=tcp`?** Strict school firewalls often block UDP traffic. Forcing the TURN connection over TCP disguises it as standard web traffic so it bypasses the firewall!
+
+---
+
+### Step 5: Handling Extreme Firewalls (TLS & HTTPS)
+
+If your school has deep-packet inspection and blocks normal TCP on port `3478`, you must use **TLS**:
+1. Edit your `.env` file to use `turns:` (with an "s") and port `5349`:
+   `TURN_URL=turns:YOUR_DOMAIN.COM:5349?transport=tcp`
+
+**Important Note on WebRTC and HTTPS:**
+WebRTC requires a Secure Context. Modern browsers will entirely block camera and microphone access if your website is not running on `https://` (and secure websockets `wss://`). When deploying this to a real server, make sure you configure SSL certificates (using a tool like Let's Encrypt or Nginx reverse proxy) and run your FastAPI app with HTTPS, or the WebRTC initialization will silently fail regardless of your TURN server. You can test HTTPS locally using the included `run_https.py` script.
