@@ -1,6 +1,12 @@
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from typing import List
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 
@@ -38,6 +44,17 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+
+@app.get("/api/turn-config")
+async def get_turn_config():
+    """
+    Returns the TURN server configuration dynamically to avoid hardcoding credentials in the frontend.
+    """
+    return JSONResponse({
+        "url": os.getenv("TURN_URL", ""),
+        "username": os.getenv("TURN_USERNAME", ""),
+        "credential": os.getenv("TURN_PASSWORD", "")
+    })
 
 # Serve static files (HTML, JS, CSS)
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
