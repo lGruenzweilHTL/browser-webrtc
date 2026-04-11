@@ -47,7 +47,7 @@ sudo apt install coturn
 
 ### Step 3: Configure Coturn
 
-We need to tell Coturn your username, password, and domain.
+We need to tell Coturn to use enterprise-grade "Time-Limited Credentials" (REST API) using a shared secret.
 
 1. Move the default config out of the way:
 ```bash
@@ -70,11 +70,9 @@ external-ip=YOUR_ORACLE_PUBLIC_IP
 listening-port=3478
 tls-listening-port=5349
 
-# Use long-term credentials mechanism (standard for WebRTC)
-lt-cred-mech
-
-# Create a Username and Password (make up a strong password)
-user=myuser:MySuperSecretPassword123!
+# Enterprise Authentication (REST API)
+use-auth-secret
+static-auth-secret=MySuperSecretAuthKey_12345
 
 # Your Domain (e.g., turn.mycoolgame.com)
 realm=YOUR_DOMAIN.COM
@@ -104,7 +102,7 @@ sudo systemctl status coturn
 
 ### Step 4: Configure Your Application (.env)
 
-Back on your local machine, instead of hardcoding your password in the frontend (where anyone could steal it and use your 10TB of bandwidth), your WebRTC code is configured to securely fetch it from your backend via `.env`.
+Back on your local machine, your Python backend is configured to generate secure, expiring passwords for your users on the fly using the exact same `static-auth-secret` you set up in Coturn.
 
 1. Copy `.env.example` to `.env`:
 ```bash
@@ -115,8 +113,7 @@ cp .env.example .env
 ```env
 # Change this to match your Oracle IP or Domain
 TURN_URL=turn:YOUR_DOMAIN.COM:3478?transport=tcp
-TURN_USERNAME=myuser
-TURN_PASSWORD=MySuperSecretPassword123!
+TURN_SECRET=MySuperSecretAuthKey_12345
 ```
 
 > **Why `?transport=tcp`?** Strict school firewalls often block UDP traffic. Forcing the TURN connection over TCP disguises it as standard web traffic so it bypasses the firewall!
