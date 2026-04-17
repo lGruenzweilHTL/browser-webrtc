@@ -1,7 +1,9 @@
 import uvicorn
+import os
 
 if __name__ == "__main__":
-    print("Starting WebRTC Signaling Server securely on HTTPS...")
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Starting WebRTC Signaling Server securely on HTTPS on port {port}...")
     print(
         "WARNING: Because this uses a self-signed certificate, your browser will warn you."
     )
@@ -15,8 +17,8 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         ssl_keyfile="key.pem",
         ssl_certfile="cert.pem",
-        reload=True,
+        reload=False,  # disabled reload for production/docker by default
     )
