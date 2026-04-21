@@ -1,0 +1,56 @@
+services:
+# Uncomment when getting a domain
+# Else it will error while trying to get certs
+#  caddy:
+#    image: caddy:latest
+#    container_name: caddy
+#    restart: unless-stopped
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./Caddyfile:/etc/caddy/Caddyfile
+#      - caddy_data:/data
+#      - caddy_config:/config
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: coturn
+    network_mode: host
+#    depends_on:
+#      - caddy
+    volumes:
+      - caddy_data:/caddy_data:ro
+    command:
+      - -n
+      - -a
+      - -v
+      - --fingerprint
+      # Dynamic auth
+      - --use-auth-secret
+      - --static-auth-secret=$TURN_SECRET
+      - --realm=$COTURN_REALM
+      - --external-ip=$COTURN_EXTERNAL_IP
+      - --min-port=$COTURN_MIN_PORT
+      - --max-port=$COTURN_MAX_PORT
+#      - --tls-listening-port=5349
+#      - --cert=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${COTURN_DOMAIN}/${COTURN_DOMAIN}.crt
+#      - --pkey=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${COTURN_DOMAIN}/${COTURN_DOMAIN}.key
+    restart: unless-stopped
+
+  signaling-server:
+    image: ghcr.io/lgruenzweilhtl/browser-webrtc:latest
+    container_name: signaling-server
+    # Remove this when implementing Caddy
+    ports:
+      - "$SIGNALING_PORT:$SIGNALING_PORT"
+    environment:
+      - PORT=$SIGNALING_PORT
+      - TURN_URL=$TURN_URL
+      # Only needed for dynamic auth
+      - TURN_SECRET=$TURN_SECRET
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
