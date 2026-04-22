@@ -47,6 +47,8 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.broadcast(data, websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        # Notify remaining peers that a user has disconnected (so they can close their portal)
+        await manager.broadcast('{"type": "hangup"}', websocket)
 
 
 @app.get("/api/turn-config")

@@ -4,13 +4,14 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f4f9;
-    color: #333;
+    background-color: #000;
+    color: #fff;
     margin: 0;
-    padding: 20px;
+    padding: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow: hidden;
 }
 
 /*.container {
@@ -36,27 +37,30 @@ h1, h3 {
     margin-bottom: 20px;
 }
 
-.video-box {
-    flex: 1;
-    min-width: 300px;
+.stargate-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
+    background-color: transparent;
+    z-index: 0;
+    pointer-events: none; /* Let clicks pass through */
 }
 
-video {
-    width: 100%;
-    max-width: 400px;
-    background-color: black;
-    border-radius: 8px;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
+#glcanvas {
+    width: 100vw;
+    height: 100vh;
+    display: block;
 }
 
-.controls {
+.ui-container {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 15px;
+    left: 15px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -64,37 +68,171 @@ video {
 }
 
 button {
-    padding: 6px 12px;
-    font-size: 14px;
-    border: none;
-    border-radius: 5px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-family: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
     cursor: pointer;
-    background-color: #3498db;
-    color: white;
-    transition: background-color 0.3s;
+    background-color: #222;
+    color: #eee;
+    transition: background-color 0.2s, border-color 0.2s;
 }
 
 button:hover:not([disabled]) {
-    background-color: #2980b9;
+    background-color: #333;
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 button[disabled] {
-    background-color: #bdc3c7;
+    background-color: #111;
+    color: #666;
+    border-color: transparent;
     cursor: not-allowed;
 }
 
-#hangupBtn {
-    background-color: #e74c3c;
-}
-#hangupBtn:hover:not([disabled]) {
-    background-color: #c0392b;
+.icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    padding: 0;
+    background: rgba(20, 20, 20, 0.6);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
 }
 
-.data-channel-container {
-    background-color: #ecf0f1;
-    padding: 20px;
-    border-radius: 8px;
+.icon-btn:hover:not([disabled]) {
+    background: rgba(40, 40, 40, 0.8);
+    transform: scale(1.05);
+}
+
+.icon-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: rgba(10, 10, 10, 0.4);
+}
+
+.state-call {
+    color: #4cd137;
+}
+
+.state-hangup {
+    color: #e84118;
+}
+
+/* --- SETTINGS PANEL --- */
+#settingsPanel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 20, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border-radius: 12px;
+    padding: 24px;
+    width: 320px;
+    pointer-events: auto;
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 200;
+}
+
+#settingsPanel.active {
+    display: flex;
+}
+
+#settingsPanel h2 {
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
     text-align: center;
+    color: #fff;
+    font-weight: 500;
+}
+
+.setting-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.setting-group label {
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    color: #ccc;
+}
+
+.setting-group input[type="range"] {
+    width: 100%;
+    accent-color: #aaa;
+}
+
+.setting-group select {
+    width: 100%;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #eee;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.setting-group select:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.setting-group select option {
+    background: #222;
+    color: #eee;
+}
+
+.setting-group input[type="color"] {
+    width: 100%;
+    height: 36px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    padding: 2px;
+    backdrop-filter: blur(4px);
+}
+
+.settings-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.settings-actions button {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px;
+    color: white;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.settings-actions button:hover:not([disabled]) {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 #messages {
