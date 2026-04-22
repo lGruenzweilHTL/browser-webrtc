@@ -1,18 +1,11 @@
 // DOM Elements
-const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-const startBtn = document.getElementById('startBtn');
 const callBtn = document.getElementById('callBtn');
 const hangupBtn = document.getElementById('hangupBtn');
-const dataStatus = document.getElementById('dataChannelStatus');
-const dataInput = document.getElementById('dataInput');
-const sendDataBtn = document.getElementById('sendDataBtn');
-const messagesDiv = document.getElementById('messages');
 
 // WebRTC State variables
 let localStream;
 let peerConnection;
-let dataChannel;
 
 // The signaling server WebSocket connection
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -80,32 +73,25 @@ function sendSignalingMessage(message) {
 // Media and UI Logic
 // =======================
 
-startBtn.onclick = async () => {
-    try {
-        // Request audio and video from the user's device
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        
-        // Display the local video feed
-        localVideo.srcObject = localStream;
-        
-        // Update UI
-        startBtn.disabled = true;
-        callBtn.disabled = false;
-    } catch (error) {
-        console.error('Error accessing media devices.', error);
-        alert('Could not access camera/mic. Please grant permissions.');
-    }
-};
-
 // Caller logic
 callBtn.onclick = async () => {
     callBtn.disabled = true;
     hangupBtn.disabled = false;
     
+    if (!localStream) {
+        try {
+            // Request audio and video from the user's device
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        } catch (error) {
+            console.error('Error accessing media devices.', error);
+            alert('Could not access camera/mic. Please grant permissions.');
+            callBtn.disabled = false;
+            hangupBtn.disabled = true;
+            return;
+        }
+    }
+
     createPeerConnection();
-    
-    // Create the data channel on the caller side
-    createDataChannel();
 
     // Add local media tracks to the connection
     localStream.getTracks().forEach(track => {
@@ -129,12 +115,10 @@ hangupBtn.onclick = () => {
         peerConnection.close();
         peerConnection = null;
     }
+
     remoteVideo.srcObject = null;
     hangupBtn.disabled = true;
     callBtn.disabled = false;
-    dataStatus.innerHTML = 'Status: <span class="offline">Offline</span>';
-    dataInput.disabled = true;
-    sendDataBtn.disabled = true;
 };
 
 // =======================
@@ -158,12 +142,6 @@ function createPeerConnection() {
         }
     };
 
-    // Listen for incoming DataChannel (for the Callee)
-    peerConnection.ondatachannel = (event) => {
-        dataChannel = event.channel;
-        setupDataChannelEventHandlers();
-    };
-
     // Track ICE connection state for debugging
     peerConnection.oniceconnectionstatechange = () => {
         console.log('ICE Connection State:', peerConnection.iceConnectionState);
@@ -171,60 +149,6 @@ function createPeerConnection() {
             hangupBtn.click();
         }
     };
-}
-
-// =======================
-// Data Channel Logic
-// =======================
-
-function createDataChannel() {
-    // Label it 'gameData' to signify future use case
-    dataChannel = peerConnection.createDataChannel('gameData');
-    setupDataChannelEventHandlers();
-}
-
-function setupDataChannelEventHandlers() {
-    dataChannel.onopen = () => {
-        console.log('Data channel opened!');
-        dataStatus.innerHTML = 'Status: <span class="online">Connected</span>';
-        dataInput.disabled = false;
-        sendDataBtn.disabled = false;
-    };
-
-    dataChannel.onclose = () => {
-        console.log('Data channel closed!');
-        dataStatus.innerHTML = 'Status: <span class="offline">Offline</span>';
-        dataInput.disabled = true;
-        sendDataBtn.disabled = true;
-    };
-
-    dataChannel.onmessage = (event) => {
-        console.log('Received message:', event.data);
-        appendMessage('Remote', event.data);
-    };
-}
-
-sendDataBtn.onclick = () => {
-    const text = dataInput.value;
-    if (text && dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(text);
-        appendMessage('You', text);
-        dataInput.value = '';
-    }
-};
-
-dataInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        sendDataBtn.click();
-    }
-});
-
-function appendMessage(sender, text) {
-    const p = document.createElement('p');
-    p.className = 'message';
-    p.innerHTML = `<strong>${sender}:</strong> ${text}`;
-    messagesDiv.appendChild(p);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 // =======================
@@ -237,6 +161,14 @@ async function handleOffer(offer) {
     }
 
     // Callee also needs to add their own media tracks to the connection
+    if (!localStream) {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        } catch (error) {
+            console.error('Error accessing media devices on answer.', error);
+        }
+    }
+    
     if (localStream) {
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);

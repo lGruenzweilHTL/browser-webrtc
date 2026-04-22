@@ -3,41 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Video Call & Data Channel</title>
+    <title>Stargate</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>WebRTC P2P Call</h1>
-        
         <div class="video-container">
             <div class="video-box">
-                <h3>Local Video</h3>
-                <!-- muted because you don't want to hear yourself -->
-                <video id="localVideo" autoplay playsinline muted></video>
-            </div>
-            <div class="video-box">
-                <h3>Remote Video</h3>
                 <video id="remoteVideo" autoplay playsinline></video>
             </div>
         </div>
 
         <div class="controls">
-            <button id="startBtn">Start Camera</button>
-            <button id="callBtn" disabled>Call</button>
+            <button id="callBtn">Call</button>
             <button id="hangupBtn" disabled>Hang Up</button>
-        </div>
-
-        <div class="data-channel-container">
-            <h3>Game State / Data Channel</h3>
-            <p id="dataChannelStatus">Status: <span class="offline">Offline</span></p>
-            <input type="text" id="dataInput" placeholder="Send a message..." disabled>
-            <button id="sendDataBtn" disabled>Send</button>
-            <div id="messages"></div>
         </div>
     </div>
 
-    <!-- WebRTC Logic -->
     <script src="app.js"></script>
 </body>
 </html>

@@ -13,14 +13,14 @@ body {
     align-items: center;
 }
 
-.container {
+/*.container {
     max-width: 900px;
     width: 100%;
     background: white;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
+}*/
 
 h1, h3 {
     text-align: center;
@@ -54,15 +54,18 @@ video {
 }
 
 .controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
     display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-bottom: 30px;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
 }
 
 button {
-    padding: 10px 20px;
-    font-size: 16px;
+    padding: 6px 12px;
+    font-size: 14px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
