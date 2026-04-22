@@ -1,8 +1,8 @@
-# 1. Route web traffic to your signaling server
-signaling.yourdomain.com {
-    reverse_proxy signaling-server:8080
+{
+    debug
+    default_sni 10.9.14.9
 }
-# 2. Dummy endpoint for Coturn just so Caddy automatically gets and renews a cert for it
-turn.yourdomain.com {
-    respond "Coturn Certificate Holder"
+10.9.14.9 {
+    reverse_proxy signaling-server:8080
+    tls internal
 }

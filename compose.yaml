@@ -1,6 +1,4 @@
 services:
-# Uncomment when getting a domain
-# Else it will error while trying to get certs
 #  caddy:
 #    image: caddy:latest
 #    container_name: caddy
@@ -39,16 +37,16 @@ services:
     restart: unless-stopped
 
   signaling-server:
-    image: ghcr.io/lgruenzweilhtl/browser-webrtc:latest
+    image: stargate-webrtc
     container_name: signaling-server
-    # Remove this when implementing Caddy
-    ports:
-      - "$SIGNALING_PORT:$SIGNALING_PORT"
     environment:
       - PORT=$SIGNALING_PORT
       - TURN_URL=$TURN_URL
       # Only needed for dynamic auth
       - TURN_SECRET=$TURN_SECRET
+    # Remove when bringing back caddy
+    ports:
+      - "$SIGNALING_PORT:$SIGNALING_PORT"
     restart: unless-stopped
 
 volumes:
