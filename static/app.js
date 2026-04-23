@@ -16,6 +16,13 @@ const resetSettings = document.getElementById('resetSettings');
 let localStream;
 let peerConnection;
 
+function updatePageTitle(state) {
+    document.title = state || 'waiting';
+}
+
+// Set initial state to waiting since we are ready for incoming connections
+updatePageTitle('waiting');
+
 // The signaling server WebSocket connection
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -501,6 +508,7 @@ callToggleBtn.onclick = async () => {
 
     updateCallUI(true);
     callToggleBtn.disabled = false;
+    updatePageTitle('waiting');
 
     createPeerConnection();
 
@@ -536,6 +544,7 @@ function closePortalSession() {
     remoteVideo.srcObject = null;
     updateCallUI(false);
     callToggleBtn.disabled = false;
+    updatePageTitle();
 }
 
 // =======================
@@ -560,6 +569,9 @@ function createPeerConnection() {
 
     peerConnection.oniceconnectionstatechange = () => {
         console.log('ICE Connection State:', peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+            updatePageTitle('open');
+        }
         if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
             closePortalSession();
         }
@@ -600,6 +612,7 @@ async function handleOffer(offer) {
     targetProgress = 1.0;
 
     updateCallUI(true);
+    updatePageTitle('waiting');
 }
 
 async function handleAnswer(answer) {
