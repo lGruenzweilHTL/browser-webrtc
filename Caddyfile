@@ -1,8 +1,4 @@
-{
-    debug
-    default_sni 10.9.14.9
-}
-10.9.14.9 {
+# 1. Route web traffic to your signaling server
+stargate.htl-leonding.ac.at {
     reverse_proxy signaling-server:8080
-    tls internal
 }

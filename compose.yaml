@@ -1,22 +1,22 @@
 services:
-#  caddy:
-#    image: caddy:latest
-#    container_name: caddy
-#    restart: unless-stopped
-#    ports:
-#      - "80:80"
-#      - "443:443"
-#    volumes:
-#      - ./Caddyfile:/etc/caddy/Caddyfile
-#      - caddy_data:/data
-#      - caddy_config:/config
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+     - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
 
   coturn:
     image: coturn/coturn:latest
     container_name: coturn
     network_mode: host
-#    depends_on:
-#      - caddy
+    depends_on:
+      - caddy
     volumes:
       - caddy_data:/caddy_data:ro
     command:
@@ -31,22 +31,19 @@ services:
       - --external-ip=$COTURN_EXTERNAL_IP
       - --min-port=$COTURN_MIN_PORT
       - --max-port=$COTURN_MAX_PORT
-#      - --tls-listening-port=5349
-#      - --cert=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${COTURN_DOMAIN}/${COTURN_DOMAIN}.crt
-#      - --pkey=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${COTURN_DOMAIN}/${COTURN_DOMAIN}.key
+      - --tls-listening-port=5349
+      - --cert=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.crt
+      - --pkey=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.key
     restart: unless-stopped
 
   signaling-server:
-    image: stargate-webrtc
+    image: ghcr.io/lgruenzweilhtl/browser-webrtc:latest
     container_name: signaling-server
     environment:
       - PORT=$SIGNALING_PORT
       - TURN_URL=$TURN_URL
       # Only needed for dynamic auth
       - TURN_SECRET=$TURN_SECRET
-    # Remove when bringing back caddy
-    ports:
-      - "$SIGNALING_PORT:$SIGNALING_PORT"
     restart: unless-stopped
 
 volumes:
