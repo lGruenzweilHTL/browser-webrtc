@@ -15,13 +15,7 @@ const resetSettings = document.getElementById('resetSettings');
 // WebRTC State variables
 let localStream;
 let peerConnection;
-
-function updatePageTitle(state) {
-    document.title = state || 'waiting';
-}
-
-// Set initial state to waiting since we are ready for incoming connections
-updatePageTitle('waiting');
+let candidateQueue = [];
 
 // The signaling server WebSocket connection
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -453,10 +447,10 @@ function getCameraConstraints() {
 
     return {
         video: { 
-            width: { ideal: width, min: width }, 
-            height: { ideal: height, min: height }, 
+            width: { ideal: width }, 
+            height: { ideal: height }, 
             facingMode: "user",
-            frameRate: { ideal: 30, max: 60 }
+            frameRate: { ideal: 30 }
         },
         audio: true
     };
@@ -508,7 +502,6 @@ callToggleBtn.onclick = async () => {
 
     updateCallUI(true);
     callToggleBtn.disabled = false;
-    updatePageTitle('waiting');
 
     createPeerConnection();
 
@@ -544,7 +537,6 @@ function closePortalSession() {
     remoteVideo.srcObject = null;
     updateCallUI(false);
     callToggleBtn.disabled = false;
-    updatePageTitle();
 }
 
 // =======================
@@ -569,9 +561,6 @@ function createPeerConnection() {
 
     peerConnection.oniceconnectionstatechange = () => {
         console.log('ICE Connection State:', peerConnection.iceConnectionState);
-        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
-            updatePageTitle('open');
-        }
         if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
             closePortalSession();
         }
@@ -603,6 +592,16 @@ async function handleOffer(offer) {
 
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
+    // Process any candidates that arrived early
+    while (candidateQueue.length > 0) {
+        const queuedCandidate = candidateQueue.shift();
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(queuedCandidate));
+        } catch (e) {
+            console.error('Error adding queued ICE candidate', e);
+        }
+    }
+
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
@@ -612,7 +611,6 @@ async function handleOffer(offer) {
     targetProgress = 1.0;
 
     updateCallUI(true);
-    updatePageTitle('waiting');
 }
 
 async function handleAnswer(answer) {
@@ -621,6 +619,16 @@ async function handleAnswer(answer) {
         return;
     }
     await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+
+    // Process any candidates that arrived early
+    while (candidateQueue.length > 0) {
+        const queuedCandidate = candidateQueue.shift();
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(queuedCandidate));
+        } catch (e) {
+            console.error('Error adding queued ICE candidate', e);
+        }
+    }
 }
 
 async function handleIceCandidate(candidate) {
@@ -628,6 +636,14 @@ async function handleIceCandidate(candidate) {
         console.error('No peer connection when receiving ICE candidate.');
         return;
     }
+    
+    // If the remote description isn't ready yet, put the candidate in the queue
+    if (!peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
+        console.log('Queuing ICE candidate...');
+        candidateQueue.push(candidate);
+        return;
+    }
+
     try {
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (e) {

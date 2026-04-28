@@ -18,4 +18,4 @@ COPY . .
 ENV PORT=8000
 
 # Command to run the application securely
-CMD ["uvicorn", "--host", "0.0.0.0", "--port", "$PORT", "main:app"]
+CMD ["sh", "-c", "uvicorn --host 0.0.0.0 --port $PORT main:app"]
