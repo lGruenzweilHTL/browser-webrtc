@@ -453,8 +453,8 @@ function getCameraConstraints() {
 
     return {
         video: { 
-            width: { ideal: width, min: width }, 
-            height: { ideal: height, min: height }, 
+            width: { ideal: width },
+            height: { ideal: height },
             facingMode: "user",
             frameRate: { ideal: 30, max: 60 }
         },
