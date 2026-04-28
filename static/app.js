@@ -15,6 +15,7 @@ const resetSettings = document.getElementById('resetSettings');
 // WebRTC State variables
 let localStream;
 let peerConnection;
+let pendingIceCandidates = []; // FIX: queue for candidates arriving before remoteDescription
 
 function updatePageTitle(state) {
     document.title = state || 'waiting';
@@ -97,19 +98,19 @@ function updateUIFromSettings() {
     if (!document.getElementById('set_maxRadius')) return;
     document.getElementById('set_maxRadius').value = settings.maxRadius;
     document.getElementById('val_maxRadius').textContent = settings.maxRadius;
-    
+
     document.getElementById('set_openSpeed').value = settings.openSpeed;
     document.getElementById('val_openSpeed').textContent = settings.openSpeed;
-    
+
     document.getElementById('set_rippleSpeed').value = settings.rippleSpeed;
     document.getElementById('val_rippleSpeed').textContent = settings.rippleSpeed;
-    
+
     document.getElementById('set_distortionStrength').value = settings.distortionStrength;
     document.getElementById('val_distortionStrength').textContent = settings.distortionStrength;
-    
+
     document.getElementById('set_baseColor').value = settings.baseColor;
     document.getElementById('set_highlightColor').value = settings.highlightColor;
-    
+
     if (document.getElementById('set_cameraResolution')) {
         document.getElementById('set_cameraResolution').value = settings.cameraResolution || 1080;
     }
@@ -378,20 +379,20 @@ function lerp(start, end, amt) {
 
 function render() {
     portalProgress = lerp(portalProgress, targetProgress, settings.openSpeed);
-    
+
     updateTexture();
 
     const currentTime = (Date.now() - startTime) / 1000.0;
     gl.uniform1f(timeLocation, currentTime);
     gl.uniform1f(portalProgressLocation, portalProgress);
-    
+
     gl.uniform1f(maxRadiusLocation, settings.maxRadius);
     gl.uniform1f(rippleSpeedLocation, settings.rippleSpeed);
     gl.uniform1f(distortionStrengthLocation, settings.distortionStrength);
-    
+
     const bColor = hexToRgb(settings.baseColor);
     gl.uniform3f(baseColorLocation, bColor[0], bColor[1], bColor[2]);
-    
+
     const hColor = hexToRgb(settings.highlightColor);
     gl.uniform3f(highlightColorLocation, hColor[0], hColor[1], hColor[2]);
 
@@ -444,7 +445,7 @@ function sendSignalingMessage(message) {
 // Helper to get getUserMedia constraints based on resolution setting
 function getCameraConstraints() {
     const res = settings.cameraResolution || 1080;
-    
+
     let width, height;
     if (res === 480) { width = 640; height = 480; }
     else if (res === 720) { width = 1280; height = 720; }
@@ -452,7 +453,7 @@ function getCameraConstraints() {
     else { width = 1920; height = 1080; } // Default 1080p
 
     return {
-        video: { 
+        video: {
             width: { ideal: width },
             height: { ideal: height },
             facingMode: "user",
@@ -488,10 +489,10 @@ callToggleBtn.onclick = async () => {
 
     // Otherwise, initiate call
     callToggleBtn.disabled = true; // Briefly disable while fetching media
-    
+
     portalOpen = true;
     targetProgress = 1.0;
-    
+
     if (!localStream) {
         try {
             localStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints());
@@ -540,6 +541,7 @@ function closePortalSession() {
 
     portalOpen = false;
     targetProgress = 0.0;
+    pendingIceCandidates = []; // FIX: clear queue on session close
 
     remoteVideo.srcObject = null;
     updateCallUI(false);
@@ -594,7 +596,7 @@ async function handleOffer(offer) {
             console.error('Error accessing media devices on answer.', error);
         }
     }
-    
+
     if (localStream) {
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);
@@ -602,12 +604,13 @@ async function handleOffer(offer) {
     }
 
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    await flushPendingIceCandidates(); // FIX: apply any queued candidates
 
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
     sendSignalingMessage({ type: 'answer', answer: answer });
-    
+
     portalOpen = true;
     targetProgress = 1.0;
 
@@ -621,11 +624,17 @@ async function handleAnswer(answer) {
         return;
     }
     await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    await flushPendingIceCandidates(); // FIX: apply any queued candidates
 }
 
+// FIX: queue candidates that arrive before remoteDescription is set
 async function handleIceCandidate(candidate) {
     if (!peerConnection) {
         console.error('No peer connection when receiving ICE candidate.');
+        return;
+    }
+    if (!peerConnection.remoteDescription) {
+        pendingIceCandidates.push(candidate);
         return;
     }
     try {
@@ -633,4 +642,16 @@ async function handleIceCandidate(candidate) {
     } catch (e) {
         console.error('Error adding received ICE candidate', e);
     }
+}
+
+// FIX: flush queued candidates after remoteDescription is set
+async function flushPendingIceCandidates() {
+    for (const candidate of pendingIceCandidates) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+            console.error('Error flushing ICE candidate', e);
+        }
+    }
+    pendingIceCandidates = [];
 }
