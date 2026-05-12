@@ -120,7 +120,14 @@ class DeviceManager:
     def validate_token(self, token: str, device_fingerprint: str) -> Optional[str]:
         """Validate a token and return device_id if valid."""
         try:
-            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            # Token received from client is encrypted - decrypt it first
+            decrypted_token = token_manager.decrypt_token(token)
+            if not decrypted_token:
+                print(f"Failed to decrypt token")
+                return None
+            
+            # Hash the decrypted token to compare with stored hash
+            token_hash = hashlib.sha256(decrypted_token.encode()).hexdigest()
             
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
@@ -133,6 +140,7 @@ class DeviceManager:
             
             if not result:
                 conn.close()
+                print(f"Token hash not found in database")
                 return None
             
             device_id, stored_fingerprint, expires_at_str = result
@@ -140,12 +148,14 @@ class DeviceManager:
             # Verify device fingerprint matches
             if stored_fingerprint != device_fingerprint:
                 conn.close()
+                print(f"Fingerprint mismatch: stored={stored_fingerprint[:20]}, provided={device_fingerprint[:20]}")
                 return None
             
             # Check expiration
             expires_at = datetime.fromisoformat(expires_at_str)
             if datetime.utcnow() > expires_at:
                 conn.close()
+                print(f"Token expired at {expires_at}")
                 return None
             
             # Update last accessed
