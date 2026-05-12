@@ -16,7 +16,7 @@ let iconHangup;
 let stargate;
 
 function initializeDOMElements() {
-    """Initialize DOM element references."""
+    // Initialize DOM element references.
     remoteVideo = document.getElementById('remoteVideo');
     callToggleBtn = document.getElementById('callToggleBtn');
     iconCall = document.getElementById('icon-call');
@@ -36,7 +36,7 @@ const resetSettings = document.getElementById('resetSettings');
 // ======================
 
 function generateDeviceFingerprint() {
-    """Generate a device fingerprint based on browser/device properties."""
+    // Generate a device fingerprint based on browser/device properties.
     const fingerprint = {
         userAgent: navigator.userAgent,
         language: navigator.language,
@@ -83,22 +83,22 @@ async function fetchTurnConfig() {
 }
 
 function getStoredToken() {
-    """Retrieve stored token from localStorage."""
+    // Retrieve stored token from localStorage.
     return localStorage.getItem('portal_auth_token');
 }
 
 function storeToken(token) {
-    """Store token in localStorage."""
+    // Store token in localStorage.
     localStorage.setItem('portal_auth_token', token);
 }
 
 function clearToken() {
-    """Clear stored token."""
+    // Clear stored token.
     localStorage.removeItem('portal_auth_token');
 }
 
 async function validateStoredToken() {
-    """Try to validate a previously stored token."""
+    // Try to validate a previously stored token.
     const storedToken = getStoredToken();
     if (!storedToken) {
         return false;
@@ -130,7 +130,7 @@ async function validateStoredToken() {
 }
 
 async function registerDevice(pin) {
-    """Register a new device with PIN."""
+    // Register a new device with PIN.
     try {
         const response = await fetch('/api/auth/register', {
             method: 'POST',
@@ -161,7 +161,7 @@ async function registerDevice(pin) {
 }
 
 function showAuthModal() {
-    """Display the authentication modal."""
+    // Display the authentication modal.
     console.log('=== SHOWING AUTH MODAL ===');
     
     // Remove any existing modal
@@ -266,7 +266,7 @@ function showAuthModal() {
 }
 
 async function initializeAuth() {
-    """Initialize authentication on page load."""
+    // Initialize authentication on page load.
     try {
         console.log('=== STARTING AUTH INITIALIZATION ===');
         deviceFingerprint = generateDeviceFingerprint();
@@ -295,7 +295,7 @@ async function initializeAuth() {
 }
 
 function startPortal() {
-    """Start the portal application after authentication."""
+    // Start the portal application after authentication.
     console.log('Portal started');
     
     // Initialize TURN config fetch
@@ -308,7 +308,7 @@ function startPortal() {
 let signalingSocket;
 
 function initializeWebSocket() {
-    """Initialize authenticated WebSocket connection."""
+    // Initialize authenticated WebSocket connection.
     console.log('Initializing WebSocket with auth');
     console.log('Auth Token:', authToken ? authToken.substring(0, 20) + '...' : 'NOT SET');
     console.log('Device Fingerprint:', deviceFingerprint);
