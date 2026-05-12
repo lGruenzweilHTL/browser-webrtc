@@ -7,6 +7,7 @@ import sqlite3
 import uuid
 import json
 from datetime import datetime, timedelta
+from urllib.parse import unquote
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status, Depends
 from fastapi.staticfiles import StaticFiles
@@ -255,20 +256,27 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
     for param in query_params.split("&"):
         if "=" in param:
             key, value = param.split("=", 1)
+            # URL decode the parameters
             if key == "token":
-                token = value
+                token = unquote(value)
             elif key == "fingerprint":
-                device_fingerprint = value
+                device_fingerprint = unquote(value)
+    
+    print(f"WebSocket auth attempt - Token length: {len(token) if token else 0}, Fingerprint: {device_fingerprint[:20] if device_fingerprint else 'None'}")
     
     # Validate authentication
     if not token or not device_fingerprint:
+        print(f"Missing auth parameters: token={bool(token)}, fingerprint={bool(device_fingerprint)}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing authentication")
         return
     
     device_id = device_manager.validate_token(token, device_fingerprint)
     if not device_id:
+        print(f"Token validation failed for fingerprint: {device_fingerprint[:20]}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication")
         return
+    
+    print(f"WebSocket authenticated for device: {device_id}")
     
     # Connection authenticated, proceed with signaling
     await manager.connect(websocket)

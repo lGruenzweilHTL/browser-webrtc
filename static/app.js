@@ -285,21 +285,45 @@ let signalingSocket;
 
 function initializeWebSocket() {
     """Initialize authenticated WebSocket connection."""
+    console.log('Initializing WebSocket with auth');
+    console.log('Auth Token:', authToken ? authToken.substring(0, 20) + '...' : 'NOT SET');
+    console.log('Device Fingerprint:', deviceFingerprint);
+    
+    if (!authToken) {
+        console.error('Cannot connect: authToken not set');
+        alert('Authentication failed: No token available. Please refresh and try again.');
+        return;
+    }
+    
+    if (!deviceFingerprint) {
+        console.error('Cannot connect: deviceFingerprint not set');
+        alert('Authentication failed: Device fingerprint not set. Please refresh and try again.');
+        return;
+    }
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(authToken)}&fingerprint=${encodeURIComponent(deviceFingerprint)}`;
+    const encodedToken = encodeURIComponent(authToken);
+    const encodedFingerprint = encodeURIComponent(deviceFingerprint);
+    const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodedToken}&fingerprint=${encodedFingerprint}`;
+    
+    console.log('WebSocket URL:', wsUrl.substring(0, 100) + '...');
+    
     signalingSocket = new WebSocket(wsUrl);
     
     signalingSocket.onopen = () => {
         console.log('Connected to the signaling server.');
+        isAuthenticated = true;
     };
     
-    signalingSocket.onclose = () => {
-        console.log('Disconnected from signaling server');
+    signalingSocket.onclose = (event) => {
+        console.log('Disconnected from signaling server', event.code, event.reason);
+        isAuthenticated = false;
         closePortalSession();
     };
     
     signalingSocket.onerror = (error) => {
         console.error('WebSocket error:', error);
+        isAuthenticated = false;
         closePortalSession();
     };
     
@@ -317,6 +341,7 @@ function initializeWebSocket() {
         }
     };
 }
+
 
 
 // TURN servers
