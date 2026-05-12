@@ -17,24 +17,42 @@ let localStream;
 let peerConnection;
 let pendingIceCandidates = []; // FIX: queue for candidates arriving before remoteDescription
 
-function updatePageTitle(state) {
-    document.title = state || 'waiting';
+// Authentication State
+let authToken = null;
+let deviceFingerprint = null;
+let isAuthenticated = false;
+
+// ======================
+// Device Fingerprinting
+// ======================
+
+function generateDeviceFingerprint() {
+    """Generate a device fingerprint based on browser/device properties."""
+    const fingerprint = {
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        platform: navigator.platform,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+        deviceMemory: navigator.deviceMemory,
+        maxTouchPoints: navigator.maxTouchPoints,
+        vendor: navigator.vendor,
+    };
+    
+    // Create a hash of the fingerprint
+    const fingerprintStr = JSON.stringify(fingerprint);
+    let hash = 0;
+    for (let i = 0; i < fingerprintStr.length; i++) {
+        const char = fingerprintStr.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    return Math.abs(hash).toString(16);
 }
 
-// Set initial state to waiting since we are ready for incoming connections
-updatePageTitle('waiting');
-
-// The signaling server WebSocket connection
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const wsUrl = `${protocol}//${window.location.host}/ws`;
-const signalingSocket = new WebSocket(wsUrl);
-
-// TURN servers
-let configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-    ]
-};
+// ======================
+// Authentication
+// ======================
 
 async function fetchTurnConfig() {
     try {
@@ -54,7 +72,231 @@ async function fetchTurnConfig() {
         console.error('Failed to fetch TURN config.', error);
     }
 }
-fetchTurnConfig();
+
+function getStoredToken() {
+    """Retrieve stored token from localStorage."""
+    return localStorage.getItem('portal_auth_token');
+}
+
+function storeToken(token) {
+    """Store token in localStorage."""
+    localStorage.setItem('portal_auth_token', token);
+}
+
+function clearToken() {
+    """Clear stored token."""
+    localStorage.removeItem('portal_auth_token');
+}
+
+async function validateStoredToken() {
+    """Try to validate a previously stored token."""
+    const storedToken = getStoredToken();
+    if (!storedToken) {
+        return false;
+    }
+    
+    try {
+        const response = await fetch('/api/auth/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: storedToken,
+                fingerprint: deviceFingerprint
+            })
+        });
+        
+        if (response.ok) {
+            authToken = storedToken;
+            isAuthenticated = true;
+            console.log('Token validation successful');
+            return true;
+        } else {
+            clearToken();
+            return false;
+        }
+    } catch (error) {
+        console.error('Token validation error:', error);
+        return false;
+    }
+}
+
+async function registerDevice(pin) {
+    """Register a new device with PIN."""
+    try {
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pin: pin,
+                fingerprint: deviceFingerprint,
+                name: `Portal Device ${new Date().toLocaleDateString()}`
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            authToken = data.token;
+            storeToken(authToken);
+            isAuthenticated = true;
+            console.log('Device registered successfully');
+            return true;
+        } else {
+            const error = await response.json();
+            console.error('Registration error:', error.detail);
+            return false;
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        return false;
+    }
+}
+
+function showAuthModal() {
+    """Display the authentication modal."""
+    const modal = document.createElement('div');
+    modal.id = 'authModal';
+    modal.className = 'auth-modal-overlay';
+    modal.innerHTML = `
+        <div class="auth-modal">
+            <div class="auth-modal-content">
+                <h2>Stargate Authentication</h2>
+                <p>Enter the 6-digit PIN to access the portal</p>
+                <input 
+                    type="password" 
+                    id="pinInput" 
+                    class="auth-pin-input" 
+                    placeholder="000000" 
+                    maxlength="6" 
+                    inputmode="numeric"
+                />
+                <button id="authSubmitBtn" class="auth-submit-btn">Connect Portal</button>
+                <div id="authError" class="auth-error"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const pinInput = document.getElementById('pinInput');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const errorDiv = document.getElementById('authError');
+    
+    // Auto-focus on input
+    setTimeout(() => pinInput.focus(), 100);
+    
+    // Allow Enter key to submit
+    pinInput.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter') {
+            submitBtn.click();
+        }
+    });
+    
+    submitBtn.addEventListener('click', async () => {
+        const pin = pinInput.value.trim();
+        
+        if (pin.length !== 6 || !/^\d+$/.test(pin)) {
+            errorDiv.textContent = 'PIN must be 6 digits';
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Connecting...';
+        
+        const success = await registerDevice(pin);
+        
+        if (success) {
+            modal.remove();
+            startPortal();
+        } else {
+            errorDiv.textContent = 'Invalid PIN. Please try again.';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Connect Portal';
+            pinInput.value = '';
+            pinInput.focus();
+        }
+    });
+}
+
+async function initializeAuth() {
+    """Initialize authentication on page load."""
+    deviceFingerprint = generateDeviceFingerprint();
+    console.log('Device fingerprint:', deviceFingerprint);
+    
+    // Try to validate stored token
+    const tokenValid = await validateStoredToken();
+    
+    if (!tokenValid) {
+        // No valid token, show auth modal
+        showAuthModal();
+    } else {
+        // Token valid, start portal
+        startPortal();
+    }
+}
+
+function startPortal() {
+    """Start the portal application after authentication."""
+    console.log('Portal started');
+    
+    // Initialize TURN config fetch
+    fetchTurnConfig();
+    
+    // Initialize WebSocket with auth parameters
+    initializeWebSocket();
+}
+
+let signalingSocket;
+
+function initializeWebSocket() {
+    """Initialize authenticated WebSocket connection."""
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(authToken)}&fingerprint=${encodeURIComponent(deviceFingerprint)}`;
+    signalingSocket = new WebSocket(wsUrl);
+    
+    signalingSocket.onopen = () => {
+        console.log('Connected to the signaling server.');
+    };
+    
+    signalingSocket.onclose = () => {
+        console.log('Disconnected from signaling server');
+        closePortalSession();
+    };
+    
+    signalingSocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        closePortalSession();
+    };
+    
+    signalingSocket.onmessage = async (event) => {
+        const message = JSON.parse(event.data);
+
+        if (message.type === 'offer') {
+            await handleOffer(message.offer);
+        } else if (message.type === 'answer') {
+            await handleAnswer(message.answer);
+        } else if (message.type === 'ice-candidate') {
+            await handleIceCandidate(message.candidate);
+        } else if (message.type === 'hangup') {
+            closePortalSession();
+        }
+    };
+}
+
+
+// TURN servers
+let configuration = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }
+    ]
+};
+
+function updatePageTitle(state) {
+    document.title = state || 'waiting';
+}
+
+// Set initial state to waiting since we are ready for incoming connections
+updatePageTitle('waiting');
+
+
 
 // =======================
 // WebGL Portal Animation
@@ -418,20 +660,6 @@ signalingSocket.onopen = () => {
     console.log('Connected to the signaling server.');
 };
 
-signalingSocket.onmessage = async (event) => {
-    const message = JSON.parse(event.data);
-
-    if (message.type === 'offer') {
-        await handleOffer(message.offer);
-    } else if (message.type === 'answer') {
-        await handleAnswer(message.answer);
-    } else if (message.type === 'ice-candidate') {
-        await handleIceCandidate(message.candidate);
-    } else if (message.type === 'hangup') {
-        closePortalSession();
-    }
-};
-
 function sendSignalingMessage(message) {
     if (signalingSocket.readyState === WebSocket.OPEN) {
         signalingSocket.send(JSON.stringify(message));
@@ -655,3 +883,12 @@ async function flushPendingIceCandidates() {
     }
     pendingIceCandidates = [];
 }
+
+// ======================
+// Application Initialization
+// ======================
+
+// Initialize authentication and portal on page load
+window.addEventListener('DOMContentLoaded', () => {
+    initializeAuth();
+});
