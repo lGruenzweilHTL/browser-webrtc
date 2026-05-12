@@ -162,11 +162,12 @@ async function registerDevice(pin) {
 
 function showAuthModal() {
     """Display the authentication modal."""
-    console.log('Showing auth modal');
+    console.log('=== SHOWING AUTH MODAL ===');
     
     // Remove any existing modal
     const existingModal = document.getElementById('authModal');
     if (existingModal) {
+        console.log('Removing existing modal');
         existingModal.remove();
     }
     
@@ -195,24 +196,33 @@ function showAuthModal() {
             </div>
         </div>
     `;
-    document.body.appendChild(modal);
     
-    console.log('Modal appended to body');
+    document.body.appendChild(modal);
+    console.log('Auth modal HTML appended to body');
+    console.log('Modal overlay z-index:', window.getComputedStyle(modal).zIndex);
     
     const pinInput = document.getElementById('pinInput');
     const submitBtn = document.getElementById('authSubmitBtn');
     const errorDiv = document.getElementById('authError');
     
-    if (!pinInput || !submitBtn) {
-        console.error('Failed to find PIN input or submit button');
+    if (!pinInput) {
+        console.error('CRITICAL: PIN input element not found!');
+        alert('UI Error: Could not create PIN input. Check browser console.');
         return;
     }
+    
+    if (!submitBtn) {
+        console.error('CRITICAL: Submit button not found!');
+        return;
+    }
+    
+    console.log('PIN input and submit button found, setting up event listeners');
     
     // Auto-focus on input
     setTimeout(() => {
         pinInput.focus();
-        console.log('PIN input focused');
-    }, 100);
+        console.log('PIN input focused, activeElement:', document.activeElement.id);
+    }, 50);
     
     // Allow Enter key to submit
     pinInput.addEventListener('keypress', async (e) => {
@@ -224,11 +234,11 @@ function showAuthModal() {
     
     submitBtn.addEventListener('click', async () => {
         const pin = pinInput.value.trim();
-        console.log('PIN input:', pin.length, 'characters');
+        console.log('Submit button clicked, PIN length:', pin.length);
         
         if (pin.length !== 6 || !/^\d+$/.test(pin)) {
             errorDiv.textContent = 'PIN must be exactly 6 digits';
-            console.warn('Invalid PIN format');
+            console.warn('Invalid PIN format:', pin);
             return;
         }
         
@@ -251,22 +261,36 @@ function showAuthModal() {
             pinInput.focus();
         }
     });
+    
+    console.log('=== AUTH MODAL SETUP COMPLETE ===');
 }
 
 async function initializeAuth() {
     """Initialize authentication on page load."""
-    deviceFingerprint = generateDeviceFingerprint();
-    console.log('Device fingerprint:', deviceFingerprint);
-    
-    // Try to validate stored token
-    const tokenValid = await validateStoredToken();
-    
-    if (!tokenValid) {
-        // No valid token, show auth modal
+    try {
+        console.log('=== STARTING AUTH INITIALIZATION ===');
+        deviceFingerprint = generateDeviceFingerprint();
+        console.log('Device fingerprint generated:', deviceFingerprint);
+        
+        // Try to validate stored token
+        console.log('Attempting to validate stored token...');
+        const tokenValid = await validateStoredToken();
+        console.log('Token validation result:', tokenValid);
+        
+        if (!tokenValid) {
+            // No valid token, show auth modal
+            console.log('No valid token, showing auth modal');
+            showAuthModal();
+        } else {
+            // Token valid, start portal
+            console.log('Token valid, starting portal');
+            startPortal();
+        }
+    } catch (error) {
+        console.error('CRITICAL ERROR in initializeAuth:', error);
+        console.error('Stack trace:', error.stack);
+        // Show modal as fallback
         showAuthModal();
-    } else {
-        // Token valid, start portal
-        startPortal();
     }
 }
 
@@ -950,18 +974,39 @@ async function flushPendingIceCandidates() {
 // Application Initialization
 // ======================
 
-// Initialize authentication and portal on page load
-window.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOMContentLoaded event fired');
+function executeInitialization() {
+    console.log('>>> executeInitialization() called');
     initializeDOMElements();
-    await initializeAuth();
+    initializeAuth().catch(error => {
+        console.error('FATAL: initializeAuth threw error:', error);
+        // Attempt emergency modal display
+        showAuthModal();
+    });
+}
+
+// Try multiple initialization triggers for maximum compatibility
+if (document.readyState === 'loading') {
+    console.log('[INIT] Document is still loading, adding DOMContentLoaded listener');
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('[INIT] DOMContentLoaded fired');
+        executeInitialization();
+    });
+} else {
+    console.log('[INIT] Document already loaded, initializing immediately');
+    executeInitialization();
+}
+
+// Also add a backup initialization trigger
+document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+        console.log('[INIT] readystatechange to', document.readyState);
+    }
 });
 
-// Also try to initialize immediately in case DOMContentLoaded already fired
-if (document.readyState === 'loading') {
-    console.log('Page still loading, waiting for DOMContentLoaded');
-} else {
-    console.log('Page already loaded, initializing immediately');
-    initializeDOMElements();
-    initializeAuth();
-}
+// Final safety net: initialize after a short delay to ensure all DOM elements exist
+setTimeout(() => {
+    if (!isAuthenticated && !document.getElementById('authModal')) {
+        console.warn('[INIT] Safety net: No modal found after 2 seconds, forcing initialization');
+        executeInitialization();
+    }
+}, 2000);
