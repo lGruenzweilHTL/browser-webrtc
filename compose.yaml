@@ -44,6 +44,10 @@ services:
       - TURN_URL=$TURN_URL
       # Only needed for dynamic auth
       - TURN_SECRET=$TURN_SECRET
+      # Authentication configuration
+      - AUTH_PIN=$AUTH_PIN
+      - AUTH_MASTER_KEY=$AUTH_MASTER_KEY
+      - AUTH_TOKEN_EXPIRY_DAYS=$AUTH_TOKEN_EXPIRY_DAYS
     restart: unless-stopped
 
 volumes:

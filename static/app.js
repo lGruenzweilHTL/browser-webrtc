@@ -1,17 +1,3 @@
-// DOM Elements
-const remoteVideo = document.getElementById('remoteVideo');
-const callToggleBtn = document.getElementById('callToggleBtn');
-const iconCall = document.getElementById('icon-call');
-const iconHangup = document.getElementById('icon-hangup');
-const stargate = document.getElementById('stargate');
-
-/*
-const settingsBtn = document.getElementById('settingsBtn');
-const settingsPanel = document.getElementById('settingsPanel');
-const closeSettings = document.getElementById('closeSettings');
-const resetSettings = document.getElementById('resetSettings');
-*/
-
 // WebRTC State variables
 let localStream;
 let peerConnection;
@@ -21,6 +7,29 @@ let pendingIceCandidates = []; // FIX: queue for candidates arriving before remo
 let authToken = null;
 let deviceFingerprint = null;
 let isAuthenticated = false;
+
+// DOM Elements (will be initialized when DOM is ready)
+let remoteVideo;
+let callToggleBtn;
+let iconCall;
+let iconHangup;
+let stargate;
+
+function initializeDOMElements() {
+    """Initialize DOM element references."""
+    remoteVideo = document.getElementById('remoteVideo');
+    callToggleBtn = document.getElementById('callToggleBtn');
+    iconCall = document.getElementById('icon-call');
+    iconHangup = document.getElementById('icon-hangup');
+    stargate = document.getElementById('stargate');
+}
+
+/*
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const closeSettings = document.getElementById('closeSettings');
+const resetSettings = document.getElementById('resetSettings');
+*/
 
 // ======================
 // Device Fingerprinting
@@ -153,14 +162,25 @@ async function registerDevice(pin) {
 
 function showAuthModal() {
     """Display the authentication modal."""
+    console.log('Showing auth modal');
+    
+    // Remove any existing modal
+    const existingModal = document.getElementById('authModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
     const modal = document.createElement('div');
     modal.id = 'authModal';
     modal.className = 'auth-modal-overlay';
     modal.innerHTML = `
         <div class="auth-modal">
             <div class="auth-modal-content">
-                <h2>Stargate Authentication</h2>
+                <h2>Stargate Portal</h2>
                 <p>Enter the 6-digit PIN to access the portal</p>
+                <div style="text-align: left; font-size: 0.85rem; color: #999; margin-bottom: 16px; padding: 12px; background: rgba(255, 255, 255, 0.03); border-radius: 6px;">
+                    <strong>First time?</strong> You should have received a PIN for this portal.
+                </div>
                 <input 
                     type="password" 
                     id="pinInput" 
@@ -168,6 +188,7 @@ function showAuthModal() {
                     placeholder="000000" 
                     maxlength="6" 
                     inputmode="numeric"
+                    autocomplete="off"
                 />
                 <button id="authSubmitBtn" class="auth-submit-btn">Connect Portal</button>
                 <div id="authError" class="auth-error"></div>
@@ -176,37 +197,53 @@ function showAuthModal() {
     `;
     document.body.appendChild(modal);
     
+    console.log('Modal appended to body');
+    
     const pinInput = document.getElementById('pinInput');
     const submitBtn = document.getElementById('authSubmitBtn');
     const errorDiv = document.getElementById('authError');
     
+    if (!pinInput || !submitBtn) {
+        console.error('Failed to find PIN input or submit button');
+        return;
+    }
+    
     // Auto-focus on input
-    setTimeout(() => pinInput.focus(), 100);
+    setTimeout(() => {
+        pinInput.focus();
+        console.log('PIN input focused');
+    }, 100);
     
     // Allow Enter key to submit
     pinInput.addEventListener('keypress', async (e) => {
         if (e.key === 'Enter') {
+            console.log('Enter key pressed');
             submitBtn.click();
         }
     });
     
     submitBtn.addEventListener('click', async () => {
         const pin = pinInput.value.trim();
+        console.log('PIN input:', pin.length, 'characters');
         
         if (pin.length !== 6 || !/^\d+$/.test(pin)) {
-            errorDiv.textContent = 'PIN must be 6 digits';
+            errorDiv.textContent = 'PIN must be exactly 6 digits';
+            console.warn('Invalid PIN format');
             return;
         }
         
         submitBtn.disabled = true;
         submitBtn.textContent = 'Connecting...';
+        console.log('Registering device with PIN');
         
         const success = await registerDevice(pin);
         
         if (success) {
+            console.log('Device registered successfully, removing modal');
             modal.remove();
             startPortal();
         } else {
+            console.error('Device registration failed');
             errorDiv.textContent = 'Invalid PIN. Please try again.';
             submitBtn.disabled = false;
             submitBtn.textContent = 'Connect Portal';
@@ -889,6 +926,17 @@ async function flushPendingIceCandidates() {
 // ======================
 
 // Initialize authentication and portal on page load
-window.addEventListener('DOMContentLoaded', () => {
-    initializeAuth();
+window.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOMContentLoaded event fired');
+    initializeDOMElements();
+    await initializeAuth();
 });
+
+// Also try to initialize immediately in case DOMContentLoaded already fired
+if (document.readyState === 'loading') {
+    console.log('Page still loading, waiting for DOMContentLoaded');
+} else {
+    console.log('Page already loaded, initializing immediately');
+    initializeDOMElements();
+    initializeAuth();
+}
