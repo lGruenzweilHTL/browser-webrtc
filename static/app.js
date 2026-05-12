@@ -22,6 +22,27 @@ function initializeDOMElements() {
     iconCall = document.getElementById('icon-call');
     iconHangup = document.getElementById('icon-hangup');
     stargate = document.getElementById('stargate');
+    
+    // Verify all elements were found
+    if (!remoteVideo || !callToggleBtn || !iconCall || !iconHangup || !stargate) {
+        console.error('ERROR: Failed to find required DOM elements');
+        console.error('remoteVideo:', remoteVideo);
+        console.error('callToggleBtn:', callToggleBtn);
+        console.error('iconCall:', iconCall);
+        console.error('iconHangup:', iconHangup);
+        console.error('stargate:', stargate);
+        return false;
+    }
+    
+    console.log('DOM elements initialized successfully');
+    
+    // Setup UI handlers now that DOM is ready
+    setupCallToggleButton();
+    
+    // Start the render loop now that DOM is ready
+    startRendering();
+    
+    return true;
 }
 
 /*
@@ -688,6 +709,17 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 function updateTexture() {
+    // Only attempt to update texture if remoteVideo exists
+    if (!remoteVideo) {
+        console.warn('updateTexture called before remoteVideo initialized');
+        // Upload a black pixel as placeholder
+        const pixel = new Uint8Array([0, 0, 0, 255]);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        gl.uniform2f(videoResolutionLocation, 1, 1);
+        return;
+    }
+    
     if (remoteVideo.readyState >= 2) {
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, remoteVideo);
@@ -735,18 +767,30 @@ function render() {
     requestAnimationFrame(render);
 }
 
-requestAnimationFrame(render);
+// Don't start rendering until DOM is initialized
+// This will be called by initializeDOMElements()
+let renderStarted = false;
+
+function startRendering() {
+    if (!renderStarted) {
+        renderStarted = true;
+        console.log('Starting render loop');
+        requestAnimationFrame(render);
+    }
+}
 
 
 // =======================
 // Signaling Logic
 // =======================
 
-signalingSocket.onopen = () => {
-    console.log('Connected to the signaling server.');
-};
-
 function sendSignalingMessage(message) {
+    // sendSignalingMessage handles WebSocket sending after auth is complete
+    if (!signalingSocket) {
+        console.warn('sendSignalingMessage called before WebSocket initialized');
+        return;
+    }
+    
     if (signalingSocket.readyState === WebSocket.OPEN) {
         signalingSocket.send(JSON.stringify(message));
     }
@@ -793,59 +837,67 @@ function updateCallUI(isActive) {
     }
 }
 
-callToggleBtn.onclick = async () => {
-    // If currently open (or opening), this functions as a hangup
-    if (portalOpen) {
-        sendSignalingMessage({ type: 'hangup' });
-        closePortalSession();
+function setupCallToggleButton() {
+    // Setup call toggle button click handler (only after DOM is initialized)
+    if (!callToggleBtn) {
+        console.error('callToggleBtn not initialized, cannot setup click handler');
         return;
     }
-
-    // Otherwise, initiate call
-    callToggleBtn.disabled = true; // Briefly disable while fetching media
-
-    portalOpen = true;
-    targetProgress = 1.0;
-
-    if (!localStream) {
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints());
-        } catch (error) {
-            console.error('Error accessing media devices.', error);
-            alert('Could not access camera/mic. Please grant permissions.');
-            portalOpen = false;
-            targetProgress = 0.0;
-            callToggleBtn.disabled = false;
-            updateCallUI(false);
+    
+    callToggleBtn.onclick = async () => {
+        // If currently open (or opening), this functions as a hangup
+        if (portalOpen) {
+            sendSignalingMessage({ type: 'hangup' });
+            closePortalSession();
             return;
         }
-    }
 
-    updateCallUI(true);
-    callToggleBtn.disabled = false;
-    updatePageTitle('waiting');
+        // Otherwise, initiate call
+        callToggleBtn.disabled = true; // Briefly disable while fetching media
 
-    createPeerConnection();
+        portalOpen = true;
+        targetProgress = 1.0;
 
-    localStream.getTracks().forEach(track => {
-        const sender = peerConnection.addTrack(track, localStream);
-        if (track.kind === 'video') {
-            const params = sender.getParameters();
-            if (!params.encodings) params.encodings = [{}];
-            params.encodings[0].maxBitrate = 8000000; // 8 Mbps
-            sender.setParameters(params);
+        if (!localStream) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints());
+            } catch (error) {
+                console.error('Error accessing media devices.', error);
+                alert('Could not access camera/mic. Please grant permissions.');
+                portalOpen = false;
+                targetProgress = 0.0;
+                callToggleBtn.disabled = false;
+                updateCallUI(false);
+                return;
+            }
         }
-    });
 
-    try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        sendSignalingMessage({ type: 'offer', offer: offer });
-    } catch (error) {
-        console.error('Error creating offer.', error);
-        closePortalSession();
-    }
-};
+        updateCallUI(true);
+        callToggleBtn.disabled = false;
+        updatePageTitle('waiting');
+
+        createPeerConnection();
+
+        localStream.getTracks().forEach(track => {
+            const sender = peerConnection.addTrack(track, localStream);
+            if (track.kind === 'video') {
+                const params = sender.getParameters();
+                if (!params.encodings) params.encodings = [{}];
+                params.encodings[0].maxBitrate = 8000000; // 8 Mbps
+                sender.setParameters(params);
+            }
+        });
+
+        try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            sendSignalingMessage({ type: 'offer', offer: offer });
+        } catch (error) {
+            console.error('Error creating offer.', error);
+            closePortalSession();
+        }
+    };
+}
 
 function closePortalSession() {
     if (peerConnection) {
