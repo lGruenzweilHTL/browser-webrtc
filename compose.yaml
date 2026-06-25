@@ -17,24 +17,31 @@ services:
     network_mode: host
     depends_on:
       - caddy
+    environment:
+      - DOMAIN=$DOMAIN
+      - TURN_SECRET=$TURN_SECRET
+      - COTURN_REALM=$COTURN_REALM
+      - COTURN_EXTERNAL_IP=$COTURN_EXTERNAL_IP
+      - COTURN_MIN_PORT=$COTURN_MIN_PORT
+      - COTURN_MAX_PORT=$COTURN_MAX_PORT
     volumes:
       - caddy_data:/caddy_data:ro
+    restart: unless-stopped
     command:
+      - turnserver
       - -n
       - -a
       - -v
       - --fingerprint
-      # Dynamic auth
+      - --no-multicast-peers
       - --use-auth-secret
-      - --static-auth-secret=$TURN_SECRET
-      - --realm=$COTURN_REALM
-      - --external-ip=$COTURN_EXTERNAL_IP
-      - --min-port=$COTURN_MIN_PORT
-      - --max-port=$COTURN_MAX_PORT
-      - --tls-listening-port=5349
-      - --cert=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.crt
-      - --pkey=/caddy_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.key
-    restart: unless-stopped
+      - --static-auth-secret=${TURN_SECRET}
+      - --realm=${COTURN_REALM}
+      - --external-ip=${COTURN_EXTERNAL_IP}
+      - --listening-port=3478
+      - --listening-ip=0.0.0.0
+      - --min-port=${COTURN_MIN_PORT}
+      - --max-port=${COTURN_MAX_PORT}
 
   signaling-server:
     image: ghcr.io/lgruenzweilhtl/browser-webrtc:latest
@@ -42,9 +49,7 @@ services:
     environment:
       - PORT=$SIGNALING_PORT
       - TURN_URL=$TURN_URL
-      # Only needed for dynamic auth
       - TURN_SECRET=$TURN_SECRET
-      # Authentication configuration
       - AUTH_PIN=$AUTH_PIN
       - AUTH_MASTER_KEY=$AUTH_MASTER_KEY
       - AUTH_TOKEN_EXPIRY_DAYS=$AUTH_TOKEN_EXPIRY_DAYS
