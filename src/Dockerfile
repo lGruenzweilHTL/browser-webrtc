@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy only python source
-COPY src/ .
+# Copy all the application files (including static files, main.py, run_https.py)
+COPY . .
 
 ENV PORT=8000
 

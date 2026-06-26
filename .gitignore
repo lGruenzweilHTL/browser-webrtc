@@ -1,26 +1,6 @@
-# Environment variables
+__pycache__
 .env
-.env.*
-!.env.template
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
 venv/
 .venv/
-env.bak/
-venv.bak/
-
-# Node/Frontend
-node_modules/
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-*.pem
-.idea/
+virtualenv/
+.virtualenv/
