@@ -48,11 +48,14 @@ services:
     container_name: signaling-server
     environment:
       - PORT=$SIGNALING_PORT
+      - DB_PATH=data/portal_devices.db
       - TURN_URL=$TURN_URL
       - TURN_SECRET=$TURN_SECRET
       - AUTH_PIN=$AUTH_PIN
       - AUTH_MASTER_KEY=$AUTH_MASTER_KEY
       - AUTH_TOKEN_EXPIRY_DAYS=$AUTH_TOKEN_EXPIRY_DAYS
+    volumes:
+      - ./portal_devices.db:/app/data/portal_devices.db
     restart: unless-stopped
 
 volumes:
