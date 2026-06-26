@@ -44,7 +44,7 @@ services:
       - --max-port=${COTURN_MAX_PORT}
 
   signaling-server:
-    image: ghcr.io/htl-leo-club-embedded-iot/Stargate-Backend/browser-webrtc:latest
+    image: ghcr.io/lgruenzweilhtl/browser-webrtc:latest
     container_name: signaling-server
     environment:
       - PORT=$SIGNALING_PORT
