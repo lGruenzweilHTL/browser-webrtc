@@ -4,12 +4,19 @@ import hmac
 import hashlib
 import base64
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    WebSocket,
+    WebSocketDisconnect,
+    HTTPException,
+    Request,
+    status,
+)
 from fastapi.responses import JSONResponse
 
-from .auth import token_manager, device_manager
-from .rate_limiter import ip_limiter, check_ip
-from .websocket_manager import manager
+from auth import token_manager, device_manager
+from rate_limiter import ip_limiter, check_ip
+from websocket_manager import manager
 
 router = APIRouter()
 
@@ -42,11 +49,13 @@ async def register_device(data: dict, request: Request):
     device_name = data.get("name", f"Portal Device {int(time.time())}")
     device_id, token = device_manager.register_device(device_name, device_fingerprint)
 
-    return JSONResponse({
-        "device_id": device_id,
-        "token": token,
-        "expires_in_days": token_manager.token_expiry_days
-    })
+    return JSONResponse(
+        {
+            "device_id": device_id,
+            "token": token,
+            "expires_in_days": token_manager.token_expiry_days,
+        }
+    )
 
 
 @router.post("/api/auth/validate")
@@ -89,11 +98,7 @@ async def get_turn_config(request: Request):
     timestamp = int(time.time()) + ttl
     username = f"{timestamp}:user"
 
-    mac = hmac.new(
-        turn_secret.encode("utf-8"),
-        username.encode("utf-8"),
-        hashlib.sha1
-    )
+    mac = hmac.new(turn_secret.encode("utf-8"), username.encode("utf-8"), hashlib.sha1)
     password = base64.b64encode(mac.digest()).decode("utf-8")
 
     return JSONResponse({"url": turn_url, "username": username, "credential": password})
@@ -106,12 +111,16 @@ async def websocket_endpoint(websocket: WebSocket):
     device_fingerprint = params.get("fingerprint")
 
     if not token or not device_fingerprint:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing authentication")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Missing authentication"
+        )
         return
 
     device_id = device_manager.validate_token(token, device_fingerprint)
     if not device_id:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication"
+        )
         return
 
     await manager.connect(websocket)

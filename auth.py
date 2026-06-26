@@ -5,7 +5,7 @@ import hashlib
 from datetime import datetime, timedelta
 from typing import Optional
 
-from .database import get_conn
+from database import get_conn
 
 
 class TokenManager:
@@ -24,19 +24,32 @@ class DeviceManager:
     def __init__(self, token_manager: TokenManager):
         self.token_manager = token_manager
 
-    def register_device(self, device_name: str, device_fingerprint: str) -> tuple[str, str]:
+    def register_device(
+        self, device_name: str, device_fingerprint: str
+    ) -> tuple[str, str]:
         device_id = str(uuid.uuid4())
         token = self.token_manager.generate_device_token(device_id)
         token_hash = hashlib.sha256(token.encode()).hexdigest()
-        expires_at = datetime.utcnow() + timedelta(days=self.token_manager.token_expiry_days)
+        expires_at = datetime.utcnow() + timedelta(
+            days=self.token_manager.token_expiry_days
+        )
 
         conn = get_conn()
         cursor = conn.cursor()
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO authorized_devices
             (device_id, device_name, token_hash, device_fingerprint, token_expires_at)
             VALUES (?, ?, ?, ?, ?)
-        ''', (device_id, device_name, token_hash, device_fingerprint, expires_at.isoformat()))
+        """,
+            (
+                device_id,
+                device_name,
+                token_hash,
+                device_fingerprint,
+                expires_at.isoformat(),
+            ),
+        )
         conn.commit()
         conn.close()
 
@@ -49,11 +62,14 @@ class DeviceManager:
 
             conn = get_conn()
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT device_id, device_fingerprint, token_expires_at
                 FROM authorized_devices
                 WHERE token_hash = ?
-            ''', (token_hash,))
+            """,
+                (token_hash,),
+            )
             result = cursor.fetchone()
 
             if not result:
@@ -71,8 +87,8 @@ class DeviceManager:
                 return None
 
             cursor.execute(
-                'UPDATE authorized_devices SET last_accessed_at = ? WHERE device_id = ?',
-                (datetime.utcnow().isoformat(), device_id)
+                "UPDATE authorized_devices SET last_accessed_at = ? WHERE device_id = ?",
+                (datetime.utcnow().isoformat(), device_id),
             )
             conn.commit()
             conn.close()
